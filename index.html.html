@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Fitness TCX Fixer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 36px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .logo { font-size: 2rem; margin-bottom: 8px; }
+  h1 { font-size: 1.4rem; color: #fff; margin-bottom: 4px; }
+  .sub { font-size: 0.85rem; color: #888; margin-bottom: 16px; }
+  .why {
+    background: #12122a;
+    border-left: 3px solid #fc4c02;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    font-size: 0.82rem;
+    color: #aaa;
+    line-height: 1.6;
+  }
+  .why strong { color: #fc4c02; }
+  .drop-zone {
+    border: 2px dashed #fc4c02;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    background: #12122a;
+  }
+  .drop-zone.drag-over { background: #1e1e3a; border-color: #ff7a50; }
+  .drop-zone input { display: none; }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .drop-text { font-size: 0.95rem; color: #aaa; }
+  .drop-text span { color: #fc4c02; font-weight: 600; cursor: pointer; }
+  .info-box {
+    background: #12122a;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 20px;
+    font-size: 0.85rem;
+    display: none;
+  }
+  .info-box.show { display: block; }
+  .info-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: #888; }
+  .info-val { color: #fff; font-weight: 600; }
+  .btn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: #fc4c02;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: none;
+  }
+  .btn:hover { background: #e04300; }
+  .btn.show { display: block; }
+  .msg {
+    margin-top: 14px;
+    font-size: 0.82rem;
+    text-align: center;
+    display: none;
+  }
+  .msg.show { display: block; }
+  .msg.ok { color: #4caf50; }
+  .msg.err { color: #f44336; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🏃</div>
+  <h1 id="t-title"></h1>
+  <p class="sub" id="t-sub"></p>
+  <div class="why" id="t-why"></div>
+
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".tcx">
+    <div class="drop-icon">📂</div>
+    <div class="drop-text" id="t-drop"></div>
+  </div>
+
+  <div class="info-box" id="infoBox">
+    <div class="info-row"><span class="info-label" id="t-file"></span><span class="info-val" id="iName">—</span></div>
+    <div class="info-row"><span class="info-label" id="t-date"></span><span class="info-val" id="iDate">—</span></div>
+    <div class="info-row"><span class="info-label" id="t-dur"></span><span class="info-val" id="iDur">—</span></div>
+    <div class="info-row"><span class="info-label" id="t-cal"></span><span class="info-val" id="iCal">—</span></div>
+    <div class="info-row"><span class="info-label" id="t-hr"></span><span class="info-val" id="iHr">—</span></div>
+  </div>
+
+  <button class="btn" id="dlBtn" onclick="download()"></button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const translations = {
+  pt: {
+    title: "Mi Fitness TCX Fixer",
+    sub: "Corrige arquivos TCX do Mi Band / Mi Fitness para importar no Strava",
+    drop: 'Arraste o arquivo <strong>.tcx</strong> aqui<br>ou <span onclick="document.getElementById(\'fileInput\').click()">clique para selecionar</span>',
+    file: "Arquivo", date: "Data/Hora", dur: "Duração", cal: "Calorias", hr: "FC Média",
+    btn: "⬇️ Baixar TCX Corrigido",
+    why: `O <strong>Mi Band</strong> e o app <strong>Mi Fitness</strong> exportam arquivos TCX com campos incompletos — falta o atributo <strong>StartTime</strong> no Lap, os Trackpoints obrigatórios e o formato correto da frequência cardíaca. Isso faz o Strava rejeitar o arquivo com erro de "timestamp inválido". Esta ferramenta corrige tudo isso automaticamente, sem enviar seus dados para nenhum servidor.`,
+    ok: "✅ Arquivo lido com sucesso! Clique para baixar.",
+    dl: "⬇️ Download iniciado!",
+    errTs: "Timestamp não encontrado no arquivo.",
+    errDate: "Data inválida no arquivo.",
+  },
+  es: {
+    title: "Mi Fitness TCX Fixer",
+    sub: "Corrige archivos TCX de Mi Band / Mi Fitness para importar en Strava",
+    drop: 'Arrastra el archivo <strong>.tcx</strong> aquí<br>o <span onclick="document.getElementById(\'fileInput\').click()">haz clic para seleccionar</span>',
+    file: "Archivo", date: "Fecha/Hora", dur: "Duración", cal: "Calorías", hr: "FC Media",
+    btn: "⬇️ Descargar TCX Corregido",
+    why: `El <strong>Mi Band</strong> y la app <strong>Mi Fitness</strong> exportan archivos TCX con campos incompletos — falta el atributo <strong>StartTime</strong> en el Lap, los Trackpoints obligatorios y el formato correcto de frecuencia cardíaca. Esto hace que Strava rechace el archivo con error de "timestamp inválido". Esta herramienta lo corrige todo automáticamente, sin enviar tus datos a ningún servidor.`,
+    ok: "✅ ¡Archivo leído con éxito! Haz clic para descargar.",
+    dl: "⬇️ ¡Descarga iniciada!",
+    errTs: "Timestamp no encontrado en el archivo.",
+    errDate: "Fecha inválida en el archivo.",
+  },
+  en: {
+    title: "Mi Fitness TCX Fixer",
+    sub: "Fixes Mi Band / Mi Fitness TCX files for Strava import",
+    drop: 'Drag your <strong>.tcx</strong> file here<br>or <span onclick="document.getElementById(\'fileInput\').click()">click to select</span>',
+    file: "File", date: "Date/Time", dur: "Duration", cal: "Calories", hr: "Avg HR",
+    btn: "⬇️ Download Fixed TCX",
+    why: `<strong>Mi Band</strong> and the <strong>Mi Fitness</strong> app export TCX files with missing required fields — the <strong>StartTime</strong> attribute in the Lap element, mandatory Trackpoints, and correct heart rate formatting are all absent. This causes Strava to reject the file with an "invalid timestamp" error. This tool fixes everything automatically, without sending your data to any server.`,
+    ok: "✅ File read successfully! Click to download.",
+    dl: "⬇️ Download started!",
+    errTs: "Timestamp not found in file.",
+    errDate: "Invalid date in file.",
+  }
+};
+
+const lang = (navigator.language || 'en').slice(0, 2);
+const t = translations[lang] || translations.en;
+
+document.getElementById('t-title').textContent = t.title;
+document.getElementById('t-sub').textContent = t.sub;
+document.getElementById('t-why').innerHTML = t.why;
+document.getElementById('t-drop').innerHTML = t.drop;
+document.getElementById('t-file').textContent = t.file;
+document.getElementById('t-date').textContent = t.date;
+document.getElementById('t-dur').textContent = t.dur;
+document.getElementById('t-cal').textContent = t.cal;
+document.getElementById('t-hr').textContent = t.hr;
+document.getElementById('dlBtn').textContent = t.btn;
+
+let fixedXml = null, originalName = '';
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg show ' + type;
+}
+
+function fmtTime(secs) {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+}
+
+function processFile(file) {
+  originalName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const doc = new DOMParser().parseFromString(e.target.result, 'text/xml');
+      const ns = 'http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2';
+      const get = tag => doc.getElementsByTagNameNS(ns, tag)[0]?.textContent?.trim()
+                      || doc.getElementsByTagName(tag)[0]?.textContent?.trim();
+
+      const idRaw = get('Id') || '';
+      const tsMatch = idRaw.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+      if (!tsMatch) throw new Error(t.errTs);
+      const ts = tsMatch[1] + 'Z';
+      const startDate = new Date(ts);
+      if (isNaN(startDate)) throw new Error(t.errDate);
+
+      const totalSecs = parseInt(get('TotalTimeSeconds') || '0');
+      const cal = get('Calories') || '0';
+      const hr = get('HeartRateBpm') || get('Value') || '0';
+      const endTs = new Date(startDate.getTime() + totalSecs * 1000).toISOString().replace('.000Z', 'Z');
+
+      const actEl = doc.getElementsByTagNameNS(ns, 'Activity')[0] || doc.getElementsByTagName('Activity')[0];
+      let sport = actEl?.getAttribute('Sport') || 'Other';
+      if (!sport.trim()) sport = 'Other';
+
+      fixedXml = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<TrainingCenterDatabase
+  xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
+  <Activities>
+    <Activity Sport="${sport}">
+      <Id>${ts}</Id>
+      <Lap StartTime="${ts}">
+        <TotalTimeSeconds>${totalSecs}</TotalTimeSeconds>
+        <DistanceMeters>0</DistanceMeters>
+        <Calories>${cal}</Calories>
+        <AverageHeartRateBpm><Value>${hr}</Value></AverageHeartRateBpm>
+        <Intensity>Active</Intensity>
+        <TriggerMethod>Manual</TriggerMethod>
+        <Track>
+          <Trackpoint>
+            <Time>${ts}</Time>
+            <HeartRateBpm><Value>${hr}</Value></HeartRateBpm>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>${endTs}</Time>
+            <HeartRateBpm><Value>${hr}</Value></HeartRateBpm>
+          </Trackpoint>
+        </Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>`;
+
+      document.getElementById('iName').textContent = file.name;
+      document.getElementById('iDate').textContent = startDate.toLocaleString(navigator.language);
+      document.getElementById('iDur').textContent = fmtTime(totalSecs);
+      document.getElementById('iCal').textContent = cal + ' kcal';
+      document.getElementById('iHr').textContent = hr + ' bpm';
+      document.getElementById('infoBox').classList.add('show');
+      document.getElementById('dlBtn').classList.add('show');
+      showMsg(t.ok, 'ok');
+    } catch(err) {
+      showMsg('❌ ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function download() {
+  if (!fixedXml) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([fixedXml], { type: 'application/xml' }));
+  a.download = originalName.replace('.tcx', '_strava.tcx');
+  a.click();
+  showMsg(t.dl, 'ok');
+}
+</script>
+</body>
+</html>
