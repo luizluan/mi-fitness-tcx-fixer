@@ -2,7 +2,7 @@
 
 > Fix broken TCX files from Mi Band / Mi Fitness and import them into Strava without errors.
 
-**[→ Open the tool](https://your-username.github.io/mi-fitness-tcx-fixer)**
+**[→ Open the tool](https://luizluan.github.io/mi-fitness-tcx-fixer)**
 
 ---
 
